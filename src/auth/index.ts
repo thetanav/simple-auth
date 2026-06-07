@@ -5,12 +5,7 @@ import crypto from "crypto";
 
 import { signinSchema, signupSchema } from "../zod/zod.types.js";
 import { prisma } from "../lib/prisma.js";
-
-interface JwtAuthPayload {
-  userId: string;
-  sessionId: string;
-  type: string;
-}
+import type { JwtAuthPayload } from "../types/signup.js";
 
 const authRouter = express.Router();
 
@@ -41,43 +36,35 @@ authRouter.post("/signup-with-email", async (req, res) => {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(
-      validatedData.data.password,
-      10
-    );
+    const hashedPassword = await bcrypt.hash(validatedData.data.password, 10);
 
     const userAgent = req.headers["user-agent"] ?? "";
     const ipAddress = req.ip ?? "";
 
-    const { user, session } = await prisma.$transaction(
-      async (tx) => {
-        const user = await tx.user.create({
-          data: {
-            email: validatedData.data.email,
-            password: hashedPassword,
-          },
-        });
+    const { user, session } = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email: validatedData.data.email,
+          password: hashedPassword,
+        },
+      });
 
-        const session = await tx.session.create({
-          data: {
-            userId: user.id,
-            userAgent,
-            ipAddress,
+      const session = await tx.session.create({
+        data: {
+          userId: user.id,
+          userAgent,
+          ipAddress,
 
-            // Session lifetime
-            expiresAt: new Date(
-              Date.now() +
-                30 * 24 * 60 * 60 * 1000
-            ),
-          },
-        });
+          // Session lifetime
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      });
 
-        return {
-          user,
-          session,
-        };
-      }
-    );
+      return {
+        user,
+        session,
+      };
+    });
 
     const accessToken = jwt.sign(
       {
@@ -88,7 +75,7 @@ authRouter.post("/signup-with-email", async (req, res) => {
       process.env.ACCESS_TOKEN_SECRET!,
       {
         expiresIn: "15m",
-      }
+      },
     );
 
     const refreshToken = jwt.sign(
@@ -100,7 +87,7 @@ authRouter.post("/signup-with-email", async (req, res) => {
       process.env.REFRESH_TOKEN_SECRET!,
       {
         expiresIn: "7d",
-      }
+      },
     );
 
     const hashedRefreshToken = crypto
@@ -113,10 +100,7 @@ authRouter.post("/signup-with-email", async (req, res) => {
         sessionId: session.id,
         token: hashedRefreshToken,
 
-        expiresAt: new Date(
-          Date.now() +
-            7 * 24 * 60 * 60 * 1000
-        ),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
 
@@ -140,117 +124,107 @@ authRouter.post("/signup-with-email", async (req, res) => {
 });
 
 authRouter.post("/signin-with-email", async (req, res) => {
-    try {
-      const { email, password } = req.body;
-  
-      const validatedData = signinSchema.safeParse({
-        email,
-        password,
-      });
-  
-      if (!validatedData.success) {
-        return res.status(400).json({
-          error: validatedData.error.message,
-        });
-      }
-  
-      const user = await prisma.user.findUnique({
-        where: {
-          email: validatedData.data.email,
-        },
-      });
-  
-      if (!user) {
-        return res.status(401).json({
-          error: "Invalid credentials",
-        });
-      }
-  
-      const isPasswordValid = await bcrypt.compare(
-        validatedData.data.password,
-        user.password
-      );
-  
-      if (!isPasswordValid) {
-        return res.status(401).json({
-          error: "Invalid credentials",
-        });
-      }
-  
-      const session = await prisma.session.create({
-        data: {
-          userId: user.id,
-          ipAddress: req.ip ?? "",
-          userAgent: req.headers["user-agent"] ?? "",
-          expiresAt: new Date(
-            Date.now() +
-            30 * 24 * 60 * 60 * 1000
-          ),
-        },
-      });
-  
-      const refreshToken = jwt.sign(
-        {
-          userId: user.id,
-          sessionId: session.id,
-          type: "refresh",
-        },
-        process.env.REFRESH_TOKEN_SECRET!,
-        {
-          expiresIn: "7d",
-        }
-      );
-  
-      const accessToken = jwt.sign(
-        {
-          userId: user.id,
-          sessionId: session.id,
-          type: "access",
-        },
-        process.env.ACCESS_TOKEN_SECRET!,
-        {
-          expiresIn: "15m",
-        }
-      );
-  
-      const hashedRefreshToken = crypto
-        .createHash("sha256")
-        .update(refreshToken)
-        .digest("hex");
-  
-      await prisma.token.create({
-        data: {
-          sessionId: session.id,
-          token: hashedRefreshToken,
-          expiresAt: new Date(
-            Date.now() +
-            7 * 24 * 60 * 60 * 1000
-          ),
-        },
-      });
-  
-      res.cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        secure:
-          process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge:
-          7 * 24 * 60 * 60 * 1000,
-      });
-  
-      return res.status(200).json({
-        accessToken,
-      });
-  
-    } catch (error) {
-      console.error("[signin-with-email]", error);
+  try {
+    const { email, password } = req.body;
 
-      return res.status(500).json({
-        error: "Internal server error",
+    const validatedData = signinSchema.safeParse({
+      email,
+      password,
+    });
+
+    if (!validatedData.success) {
+      return res.status(400).json({
+        error: validatedData.error.message,
       });
     }
-  });
 
+    const user = await prisma.user.findUnique({
+      where: {
+        email: validatedData.data.email,
+      },
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        error: "Invalid credentials, user not found!",
+      });
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      validatedData.data.password,
+      user.password,
+    );
+
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        error: "Password not valid!",
+      });
+    }
+
+    const session = await prisma.session.create({
+      data: {
+        userId: user.id,
+        ipAddress: req.ip ?? "",
+        userAgent: req.headers["user-agent"] ?? "",
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    const refreshToken = jwt.sign(
+      {
+        userId: user.id,
+        sessionId: session.id,
+        type: "refresh",
+      },
+      process.env.REFRESH_TOKEN_SECRET!,
+      {
+        expiresIn: "7d",
+      },
+    );
+
+    const accessToken = jwt.sign(
+      {
+        userId: user.id,
+        sessionId: session.id,
+        type: "access",
+      },
+      process.env.ACCESS_TOKEN_SECRET!,
+      {
+        expiresIn: "15m",
+      },
+    );
+
+    const hashedRefreshToken = crypto
+      .createHash("sha256")
+      .update(refreshToken)
+      .digest("hex");
+
+    await prisma.token.create({
+      data: {
+        sessionId: session.id,
+        token: hashedRefreshToken,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return res.status(200).json({
+      accessToken,
+    });
+  } catch (error) {
+    console.error("[signin-with-email]", error);
+
+    return res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+});
 
 authRouter.post("/refresh-token", async (req, res) => {
   try {
@@ -267,31 +241,31 @@ authRouter.post("/refresh-token", async (req, res) => {
       .digest("hex");
 
     const token = await prisma.token.findFirst({
-        where: {
-            token: hashedRefreshToken,
-        },
+      where: {
+        token: hashedRefreshToken,
+      },
     });
     if (!token || token.expiresAt < new Date()) {
-        return res.status(401).json({
-            error: "Invalid refresh token",
-        });
+      return res.status(401).json({
+        error: "Invalid refresh token",
+      });
     }
 
     //check if session is expired or what
     const session = await prisma.session.findUnique({
-        where: {
-            id: token.sessionId,
-        },
+      where: {
+        id: token.sessionId,
+      },
     });
     if (!session || session.expiresAt < new Date()) {
-        return res.status(401).json({
-            error: "Invalid refresh token",
-        });
+      return res.status(401).json({
+        error: "Invalid refresh token",
+      });
     }
 
     const verified = jwt.verify(
       refreshToken,
-      process.env.REFRESH_TOKEN_SECRET!
+      process.env.REFRESH_TOKEN_SECRET!,
     );
 
     if (typeof verified === "string") {
@@ -307,50 +281,55 @@ authRouter.post("/refresh-token", async (req, res) => {
       });
     }
 
-    
-    const newAccessToken = jwt.sign({
+    const newAccessToken = jwt.sign(
+      {
         userId: decoded.userId,
         sessionId: decoded.sessionId,
         type: "access",
-    }, process.env.ACCESS_TOKEN_SECRET!, {
+      },
+      process.env.ACCESS_TOKEN_SECRET!,
+      {
         expiresIn: "15m",
-    });
+      },
+    );
 
     //update the refresh token in the db
-    const updatedRefreshToken = jwt.sign({
+    const updatedRefreshToken = jwt.sign(
+      {
         userId: decoded.userId,
         sessionId: decoded.sessionId,
         type: "refresh",
-    }, process.env.REFRESH_TOKEN_SECRET!, {
+      },
+      process.env.REFRESH_TOKEN_SECRET!,
+      {
         expiresIn: "7d",
-    });
+      },
+    );
 
     res.cookie("refreshToken", updatedRefreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
-    
+
     const hashedUpdatedRefreshToken = crypto
       .createHash("sha256")
       .update(updatedRefreshToken)
       .digest("hex");
 
     await prisma.token.updateMany({
-        where: {
-            sessionId: decoded.sessionId,
-        },
-        data: {
-            token: hashedUpdatedRefreshToken,
-            expiresAt: new Date(
-                Date.now() + 7 * 24 * 60 * 60 * 1000
-            ),
-        },
+      where: {
+        sessionId: decoded.sessionId,
+      },
+      data: {
+        token: hashedUpdatedRefreshToken,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
     });
 
     return res.status(200).json({
-        accessToken: newAccessToken,
+      accessToken: newAccessToken,
     });
   } catch (error) {
     console.error("[refresh-token]", error);
@@ -388,7 +367,7 @@ authRouter.get("/session", async (req, res) => {
     try {
       const verified = jwt.verify(
         refreshToken,
-        process.env.REFRESH_TOKEN_SECRET!
+        process.env.REFRESH_TOKEN_SECRET!,
       );
       if (typeof verified === "string") {
         return res.json({ loggedIn: false });
@@ -410,6 +389,39 @@ authRouter.get("/session", async (req, res) => {
   } catch (error) {
     console.error("[session]", error);
     return res.status(500).json({ loggedIn: false });
+  }
+});
+
+authRouter.get("/logout-session", async (req, res) => {
+  const { sessionId } = req.query as { sessionId?: string };
+  if (!sessionId) {
+    return res.status(400).json({ message: "Session ID is required" });
+  }
+
+  try {
+    await prisma.session.delete({ where: { id: sessionId } });
+    return res.status(200).json({ message: "Session logged out successfully" });
+  } catch (error) {
+    console.error("[logout-session]", error);
+    return res.status(500).json({ message: "Failed to log out session" });
+  }
+});
+
+authRouter.post("/ban-session", async (req, res) => {
+  const { sessionId } = req.body as { sessionId?: string };
+  if (!sessionId) {
+    return res.status(400).json({ message: "Session ID is required" });
+  }
+
+  try {
+    await prisma.session.update({
+      where: { id: sessionId },
+      data: { banned: true },
+    });
+    return res.status(200).json({ message: "Session banned successfully" });
+  } catch (error) {
+    console.error("[ban-session]", error);
+    return res.status(500).json({ message: "Failed to ban session" });
   }
 });
 
@@ -450,6 +462,46 @@ authRouter.post("/logout", async (req, res) => {
   } catch (error) {
     console.error("[logout]", error);
     res.clearCookie("refreshToken", cookieOpts);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+authRouter.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    return res
+      .status(200)
+      .json({ message: "Password reset token sent", resetToken });
+  } catch (error) {
+    console.error("[forgot-password]", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+authRouter.post("/reset-password", async (req, res) => {
+  try {
+    const { resetToken, newPassword } = req.body;
+
+    const user = await prisma.user.findUnique({ where: { resetToken } });
+    if (!user) {
+      return res.status(404).json({ error: "Invalid reset token" });
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: newPassword },
+    });
+
+    return res.status(200).json({ message: "Password reset successfully" });
+  } catch (error) {
+    console.error("[reset-password]", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
