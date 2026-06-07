@@ -8,6 +8,7 @@
     "jsx": "react-jsx",
     "allowJs": true,
     "types": ["bun"],
+    "rootDir": "*",
     "outDir": "dist",
 
     // Bundler mode
@@ -26,6 +27,6 @@
     // Some stricter flags (disabled by default)
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noPropertyAccessFromIndexSignature": false
-  }
+    "noPropertyAccessFromIndexSignature": false,
+  },
 }
