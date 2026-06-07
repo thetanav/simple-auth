@@ -2,7 +2,7 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-
+import env from "../zod/env";
 import { signinSchema, signupSchema } from "../zod/zod.types.js";
 import { prisma } from "../lib/prisma.js";
 import type { JwtAuthPayload } from "../types/signup.js";
@@ -10,6 +10,7 @@ import type { JwtAuthPayload } from "../types/signup.js";
 const authRouter = express.Router();
 
 authRouter.post("/signup-with-email", async (req, res) => {
+  // this route is to sign up with email and password
   try {
     const { email, password } = req.body;
 
@@ -72,7 +73,7 @@ authRouter.post("/signup-with-email", async (req, res) => {
         sessionId: session.id,
         type: "access",
       },
-      process.env.ACCESS_TOKEN_SECRET!,
+      env.ACCESS_TOKEN_SECRET!,
       {
         expiresIn: "15m",
       },
@@ -84,7 +85,7 @@ authRouter.post("/signup-with-email", async (req, res) => {
         sessionId: session.id,
         type: "refresh",
       },
-      process.env.REFRESH_TOKEN_SECRET!,
+      env.REFRESH_TOKEN_SECRET!,
       {
         expiresIn: "7d",
       },
@@ -106,7 +107,7 @@ authRouter.post("/signup-with-email", async (req, res) => {
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: env.NODE_ENV === "production",
       sameSite: "strict",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
@@ -124,6 +125,7 @@ authRouter.post("/signup-with-email", async (req, res) => {
 });
 
 authRouter.post("/signin-with-email", async (req, res) => {
+  // this route is to sign in with email and password
   try {
     const { email, password } = req.body;
 
@@ -176,7 +178,7 @@ authRouter.post("/signin-with-email", async (req, res) => {
         sessionId: session.id,
         type: "refresh",
       },
-      process.env.REFRESH_TOKEN_SECRET!,
+      env.REFRESH_TOKEN_SECRET!,
       {
         expiresIn: "7d",
       },
@@ -188,7 +190,7 @@ authRouter.post("/signin-with-email", async (req, res) => {
         sessionId: session.id,
         type: "access",
       },
-      process.env.ACCESS_TOKEN_SECRET!,
+      env.ACCESS_TOKEN_SECRET!,
       {
         expiresIn: "15m",
       },
@@ -209,7 +211,7 @@ authRouter.post("/signin-with-email", async (req, res) => {
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: env.NODE_ENV === "production",
       sameSite: "strict",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
@@ -227,6 +229,7 @@ authRouter.post("/signin-with-email", async (req, res) => {
 });
 
 authRouter.post("/refresh-token", async (req, res) => {
+  // this route is to refresh the access token using the refresh token
   try {
     const { refreshToken } = req.cookies as { refreshToken?: string };
     if (!refreshToken) {
@@ -245,6 +248,7 @@ authRouter.post("/refresh-token", async (req, res) => {
         token: hashedRefreshToken,
       },
     });
+
     if (!token || token.expiresAt < new Date()) {
       return res.status(401).json({
         error: "Invalid refresh token",
@@ -257,16 +261,14 @@ authRouter.post("/refresh-token", async (req, res) => {
         id: token.sessionId,
       },
     });
+
     if (!session || session.expiresAt < new Date()) {
       return res.status(401).json({
         error: "Invalid refresh token",
       });
     }
 
-    const verified = jwt.verify(
-      refreshToken,
-      process.env.REFRESH_TOKEN_SECRET!,
-    );
+    const verified = jwt.verify(refreshToken, env.REFRESH_TOKEN_SECRET!);
 
     if (typeof verified === "string") {
       return res.status(401).json({
@@ -287,7 +289,7 @@ authRouter.post("/refresh-token", async (req, res) => {
         sessionId: decoded.sessionId,
         type: "access",
       },
-      process.env.ACCESS_TOKEN_SECRET!,
+      env.ACCESS_TOKEN_SECRET!,
       {
         expiresIn: "15m",
       },
@@ -300,7 +302,7 @@ authRouter.post("/refresh-token", async (req, res) => {
         sessionId: decoded.sessionId,
         type: "refresh",
       },
-      process.env.REFRESH_TOKEN_SECRET!,
+      env.REFRESH_TOKEN_SECRET!,
       {
         expiresIn: "7d",
       },
@@ -308,7 +310,7 @@ authRouter.post("/refresh-token", async (req, res) => {
 
     res.cookie("refreshToken", updatedRefreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: env.NODE_ENV === "production",
       sameSite: "strict",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
@@ -338,6 +340,7 @@ authRouter.post("/refresh-token", async (req, res) => {
 });
 
 authRouter.get("/session", async (req, res) => {
+  // route for user to check if they are logged in and get their session
   try {
     const { refreshToken } = req.cookies as { refreshToken?: string };
     if (!refreshToken) {
@@ -365,10 +368,7 @@ authRouter.get("/session", async (req, res) => {
     }
 
     try {
-      const verified = jwt.verify(
-        refreshToken,
-        process.env.REFRESH_TOKEN_SECRET!,
-      );
+      const verified = jwt.verify(refreshToken, env.REFRESH_TOKEN_SECRET!);
       if (typeof verified === "string") {
         return res.json({ loggedIn: false });
       }
@@ -387,12 +387,13 @@ authRouter.get("/session", async (req, res) => {
       sessionId: session.id,
     });
   } catch (error) {
-    console.error("[session]", error);
+    // console.error("[session]", error);
     return res.status(500).json({ loggedIn: false });
   }
 });
 
 authRouter.get("/logout-session", async (req, res) => {
+  // this route is to remotely logout a session with session id
   const { sessionId } = req.query as { sessionId?: string };
   if (!sessionId) {
     return res.status(400).json({ message: "Session ID is required" });
@@ -408,6 +409,7 @@ authRouter.get("/logout-session", async (req, res) => {
 });
 
 authRouter.post("/ban-session", async (req, res) => {
+  // this route is to remotely ban a session with session id
   const { sessionId } = req.body as { sessionId?: string };
   if (!sessionId) {
     return res.status(400).json({ message: "Session ID is required" });
@@ -426,9 +428,10 @@ authRouter.post("/ban-session", async (req, res) => {
 });
 
 authRouter.post("/logout", async (req, res) => {
+  // this route is to logout for clients
   const cookieOpts = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: env.NODE_ENV === "production",
     sameSite: "strict" as const,
   };
 
@@ -467,6 +470,7 @@ authRouter.post("/logout", async (req, res) => {
 });
 
 authRouter.post("/forgot-password", async (req, res) => {
+  // send email to reset password
   try {
     const { email } = req.body;
     const user = await prisma.user.findUnique({ where: { email } });
@@ -486,6 +490,7 @@ authRouter.post("/forgot-password", async (req, res) => {
 });
 
 authRouter.post("/reset-password", async (req, res) => {
+  // reset password using the reset token
   try {
     const { resetToken, newPassword } = req.body;
 
@@ -503,78 +508,6 @@ authRouter.post("/reset-password", async (req, res) => {
   } catch (error) {
     console.error("[reset-password]", error);
     return res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-authRouter.get("/demo/db", async (_req, res) => {
-  try {
-    const [users, sessions, tokens] = await Promise.all([
-      prisma.user.findMany({
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          email: true,
-          password: true,
-          firstName: true,
-          lastName: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      }),
-      prisma.session.findMany({
-        orderBy: { createdAt: "desc" },
-        include: {
-          user: { select: { email: true } },
-          tokens: { select: { id: true } },
-        },
-      }),
-      prisma.token.findMany({
-        orderBy: { createdAt: "desc" },
-        include: {
-          session: {
-            select: {
-              id: true,
-              user: { select: { email: true } },
-            },
-          },
-        },
-      }),
-    ]);
-
-    return res.json({
-      counts: {
-        users: users.length,
-        sessions: sessions.length,
-        tokens: tokens.length,
-      },
-      users: users.map((u) => ({
-        ...u,
-        password: `${u.password.slice(0, 12)}… (${u.password.length} chars, bcrypt)`,
-      })),
-      sessions: sessions.map((s) => ({
-        id: s.id,
-        userId: s.userId,
-        userEmail: s.user.email,
-        ipAddress: s.ipAddress,
-        userAgent: s.userAgent,
-        expiresAt: s.expiresAt,
-        createdAt: s.createdAt,
-        tokenCount: s.tokens.length,
-        expired: s.expiresAt < new Date(),
-      })),
-      tokens: tokens.map((t) => ({
-        id: t.id,
-        sessionId: t.sessionId,
-        userEmail: t.session.user.email,
-        token: `${t.token.slice(0, 16)}… (${t.token.length} chars, SHA-256)`,
-        expiresAt: t.expiresAt,
-        createdAt: t.createdAt,
-        expired: t.expiresAt < new Date(),
-      })),
-    });
-  } catch (error) {
-    console.error("[demo/db]", error);
-    return res.status(500).json({ error: "Failed to load database" });
   }
 });
 

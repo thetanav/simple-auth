@@ -1,11 +1,7 @@
 import "dotenv/config";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { PrismaClient } from "./../generated/prisma/client";
+import env from "../zod/env";
 
-const connectionString = process.env["DATABASE_URL"];
-if (!connectionString) {
-  throw new Error("DATABASE_URL environment variable is not set.");
-}
-
-const adapter = new PrismaLibSql({ url: connectionString });
+const adapter = new PrismaLibSql({ url: env.DATABASE_URL });
 export const prisma = new PrismaClient({ adapter });
