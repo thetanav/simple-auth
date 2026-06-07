@@ -6,6 +6,7 @@ import env from "../zod/env";
 import { signinSchema, signupSchema } from "../zod/zod.types.js";
 import { prisma } from "../lib/prisma.js";
 import type { JwtAuthPayload } from "../types/signup.js";
+import { logger } from "../lib/logger.js";
 
 const authRouter = express.Router();
 
@@ -387,7 +388,7 @@ authRouter.get("/session", async (req, res) => {
       sessionId: session.id,
     });
   } catch (error) {
-    // console.error("[session]", error);
+    logger.error(["/session", { error }]);
     return res.status(500).json({ loggedIn: false });
   }
 });
@@ -403,27 +404,8 @@ authRouter.get("/logout-session", async (req, res) => {
     await prisma.session.delete({ where: { id: sessionId } });
     return res.status(200).json({ message: "Session logged out successfully" });
   } catch (error) {
-    console.error("[logout-session]", error);
+    logger.error(["/logout-session", { sessionId, error }]);
     return res.status(500).json({ message: "Failed to log out session" });
-  }
-});
-
-authRouter.post("/ban-session", async (req, res) => {
-  // this route is to remotely ban a session with session id
-  const { sessionId } = req.body as { sessionId?: string };
-  if (!sessionId) {
-    return res.status(400).json({ message: "Session ID is required" });
-  }
-
-  try {
-    await prisma.session.update({
-      where: { id: sessionId },
-      data: { banned: true },
-    });
-    return res.status(200).json({ message: "Session banned successfully" });
-  } catch (error) {
-    console.error("[ban-session]", error);
-    return res.status(500).json({ message: "Failed to ban session" });
   }
 });
 
@@ -463,7 +445,7 @@ authRouter.post("/logout", async (req, res) => {
 
     return res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
-    console.error("[logout]", error);
+    logger.error(["/logout", { error }]);
     res.clearCookie("refreshToken", cookieOpts);
     return res.status(500).json({ error: "Internal server error" });
   }
