@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Auth Backend — Interactive Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="m-stripe"></div>
+
+    <header class="top-nav">
+      <div class="brand">
+        <span class="brand-mark">Auth System</span>
+        <span class="brand-sub">Backend walkthrough</span>
+      </div>
+      <nav class="nav-tabs" aria-label="Sections">
+        <button class="nav-tab active" data-panel="panel-overview">Overview</button>
+        <button class="nav-tab" data-panel="panel-signup">Sign Up</button>
+        <button class="nav-tab" data-panel="panel-signin">Sign In</button>
+        <button class="nav-tab" data-panel="panel-refresh">Refresh</button>
+        <button class="nav-tab" data-panel="panel-logout">Logout</button>
+        <button class="nav-tab" data-panel="panel-tokens">Tokens</button>
+        <button class="nav-tab" data-panel="panel-database">Database</button>
+        <button class="nav-tab" data-panel="panel-console">Console</button>
+      </nav>
+      <div class="nav-status-group">
+        <div class="status-pill auth-pill" id="auth-status">
+          <span class="status-dot"></span>
+          <span class="auth-label">Checking…</span>
+        </div>
+        <div class="status-pill" id="server-status">
+          <span class="status-dot"></span>
+          <span class="status-label">Checking…</span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <!-- OVERVIEW -->
+      <section id="panel-overview" class="panel active">
+        <div class="hero">
+          <h1>Authentication<br />Engineering Demo</h1>
+          <p class="hero-lead">
+            A step-by-step visualization of the email auth backend — validation,
+            bcrypt hashing, session tracking, JWT issuance, and refresh-token
+            persistence. Run live requests against your local server or walk through
+            each stage without hitting the API.
+          </p>
+        </div>
+
+        <div class="grid-3">
+          <div class="spec-cell">
+            <span class="spec-value">3</span>
+            <span class="spec-label">Data models</span>
+          </div>
+          <div class="spec-cell">
+            <span class="spec-value">4</span>
+            <span class="spec-label">Auth endpoints</span>
+          </div>
+          <div class="spec-cell">
+            <span class="spec-value">15m / 7d</span>
+            <span class="spec-label">Access / refresh TTL</span>
+          </div>
+        </div>
+
+        <h2 class="section-head">Data flow</h2>
+        <p class="section-sub">How records relate after a successful sign-up or sign-in</p>
+
+        <div class="arch-diagram">
+          <article class="arch-node">
+            <span class="arch-arrow">→</span>
+            <h3>User</h3>
+            <p>Identity anchor — email + bcrypt password hash.</p>
+            <ul>
+              <li>id (uuid)</li>
+              <li>email (unique)</li>
+              <li>password (hashed)</li>
+            </ul>
+          </article>
+          <article class="arch-node">
+            <span class="arch-arrow">→</span>
+            <h3>Session</h3>
+            <p>Device context — one row per login device.</p>
+            <ul>
+              <li>userId → User</li>
+              <li>ipAddress, userAgent</li>
+              <li>expiresAt (30 days)</li>
+            </ul>
+          </article>
+          <article class="arch-node">
+            <h3>Token</h3>
+            <p>Refresh token store — SHA-256 hash only.</p>
+            <ul>
+              <li>sessionId → Session</li>
+              <li>token (hashed)</li>
+              <li>expiresAt (7 days)</li>
+            </ul>
+          </article>
+        </div>
+
+        <h2 class="section-head">Dual-token pattern</h2>
+        <div class="grid-2">
+          <div class="spec-cell">
+            <span class="spec-label">Access token</span>
+            <p style="margin: 12px 0 0; color: var(--body-strong); font-size: 16px">
+              Short-lived JWT (15 min) returned in JSON. Client sends it as
+              <code>Authorization: Bearer</code> on protected routes. Payload:
+              <code>userId</code>, <code>sessionId</code>, <code>type: "access"</code>.
+            </p>
+          </div>
+          <div class="spec-cell">
+            <span class="spec-label">Refresh token</span>
+            <p style="margin: 12px 0 0; color: var(--body-strong); font-size: 16px">
+              Long-lived JWT (7 days) in an <strong>httpOnly</strong> cookie.
+              Only a SHA-256 hash is stored in Postgres. Used to mint new access
+              tokens without re-login.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SIGN UP -->
+      <section id="panel-signup" class="panel">
+        <div class="hero">
+          <h1>Sign Up Flow</h1>
+          <p class="hero-lead">
+            <span class="badge badge-post">POST</span>
+            <code>/auth/signup-with-email</code> — creates user, session, refresh
+            token record, and returns an access token.
+          </p>
+        </div>
+
+        <div class="flow-layout">
+          <aside class="timeline" id="signup-timeline" aria-label="Sign up steps"></aside>
+
+          <div class="playground">
+            <div class="form-row">
+              <label for="signup-email">Email</label>
+              <input
+                class="text-input"
+                id="signup-email"
+                type="email"
+                placeholder="driver@m.example"
+                autocomplete="email"
+              />
+            </div>
+            <div class="form-row">
+              <label for="signup-password">Password</label>
+              <input
+                class="text-input"
+                id="signup-password"
+                type="password"
+                placeholder="Min 8 characters"
+                autocomplete="new-password"
+              />
+            </div>
+            <div class="btn-row">
+              <button class="btn-primary" id="signup-run" type="button">
+                Run live request
+              </button>
+              <button class="btn-primary btn-outline" id="signup-walk" type="button">
+                Walk through steps
+              </button>
+            </div>
+            <div id="signup-result" style="margin-top: var(--lg)"></div>
+            <p class="spec-label" style="margin-top: var(--lg)">Access token (JWT)</p>
+            <div class="jwt-preview" id="signup-jwt">—</div>
+            <div id="signup-jwt-meta"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SIGN IN -->
+      <section id="panel-signin" class="panel">
+        <div class="hero">
+          <h1>Sign In Flow</h1>
+          <p class="hero-lead">
+            <span class="badge badge-post">POST</span>
+            <code>/auth/signin-with-email</code> — verifies credentials, spins a
+            new session, issues fresh tokens.
+          </p>
+        </div>
+
+        <div class="flow-layout">
+          <aside class="timeline" id="signin-timeline" aria-label="Sign in steps"></aside>
+
+          <div class="playground">
+            <div class="form-row">
+              <label for="signin-email">Email</label>
+              <input
+                class="text-input"
+                id="signin-email"
+                type="email"
+                placeholder="driver@m.example"
+                autocomplete="email"
+              />
+            </div>
+            <div class="form-row">
+              <label for="signin-password">Password</label>
+              <input
+                class="text-input"
+                id="signin-password"
+                type="password"
+                placeholder="Your password"
+                autocomplete="current-password"
+              />
+            </div>
+            <div class="btn-row">
+              <button class="btn-primary" id="signin-run" type="button">
+                Run live request
+              </button>
+              <button class="btn-primary btn-outline" id="signin-walk" type="button">
+                Walk through steps
+              </button>
+            </div>
+            <div id="signin-result" style="margin-top: var(--lg)"></div>
+            <p class="spec-label" style="margin-top: var(--lg)">Access token (JWT)</p>
+            <div class="jwt-preview" id="signin-jwt">—</div>
+            <div id="signin-jwt-meta"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- REFRESH -->
+      <section id="panel-refresh" class="panel">
+        <div class="hero">
+          <h1>Refresh Token Flow</h1>
+          <p class="hero-lead">
+            <span class="badge badge-post">POST</span>
+            <code>/auth/refresh-token</code> — uses the httpOnly cookie to mint a
+            new access token and rotate the refresh token in the database.
+          </p>
+        </div>
+
+        <div class="flow-layout">
+          <aside class="timeline" id="refresh-timeline" aria-label="Refresh steps"></aside>
+
+          <div class="playground">
+            <div class="spec-cell" style="margin-bottom: var(--lg)">
+              <span class="spec-label">Prerequisite</span>
+              <p style="margin: 12px 0 0; color: var(--body-strong); font-size: 14px">
+                Sign up or sign in first — that sets the <code>refreshToken</code>
+                httpOnly cookie. This request sends it automatically via
+                <code>credentials: "include"</code>.
+              </p>
+              <p id="refresh-cookie-hint" style="margin: 12px 0 0; font-size: 13px; color: var(--muted)">
+                Cookie status: unknown — run sign up / sign in first
+              </p>
+            </div>
+            <div class="btn-row">
+              <button class="btn-primary" id="refresh-run" type="button">
+                Run live request
+              </button>
+              <button class="btn-primary btn-outline" id="refresh-walk" type="button">
+                Walk through steps
+              </button>
+            </div>
+            <div id="refresh-result" style="margin-top: var(--lg)"></div>
+            <p class="spec-label" style="margin-top: var(--lg)">New access token (JWT)</p>
+            <div class="jwt-preview" id="refresh-jwt">—</div>
+            <div id="refresh-jwt-meta"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LOGOUT -->
+      <section id="panel-logout" class="panel">
+        <div class="hero">
+          <h1>Logout Flow</h1>
+          <p class="hero-lead">
+            <span class="badge badge-post">POST</span>
+            <code>/auth/logout</code> — invalidates the current session server-side,
+            deletes the refresh token from the database, and clears the httpOnly cookie.
+          </p>
+        </div>
+
+        <div class="flow-layout">
+          <aside class="timeline" id="logout-timeline" aria-label="Logout steps"></aside>
+
+          <div class="playground">
+            <div class="spec-cell" style="margin-bottom: var(--lg)">
+              <span class="spec-label">What gets destroyed</span>
+              <p style="margin: 12px 0 0; color: var(--body-strong); font-size: 14px">
+                Only the <strong>current session</strong> tied to your refresh cookie —
+                not the user account. Other devices stay signed in.
+              </p>
+              <p id="logout-cookie-hint" style="margin: 12px 0 0; font-size: 13px; color: var(--muted)">
+                Cookie status: unknown — sign in first to test logout
+              </p>
+            </div>
+            <div class="btn-row">
+              <button class="btn-primary" id="logout-run" type="button">
+                Run live request
+              </button>
+              <button class="btn-primary btn-outline" id="logout-walk" type="button">
+                Walk through steps
+              </button>
+            </div>
+            <div id="logout-result" style="margin-top: var(--lg)"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TOKENS -->
+      <section id="panel-tokens" class="panel">
+        <div class="hero">
+          <h1>Token Model</h1>
+          <p class="hero-lead">
+            What gets created, where it lives, and what the client can see after
+            authentication succeeds.
+          </p>
+        </div>
+
+        <div class="token-grid">
+          <article class="token-card">
+            <h3>Access token</h3>
+            <dl>
+              <dt>Transport</dt>
+              <dd>JSON response body</dd>
+              <dt>Storage (client)</dt>
+              <dd>Memory / secure storage — never localStorage for XSS safety</dd>
+              <dt>Secret</dt>
+              <dd>ACCESS_TOKEN_SECRET</dd>
+              <dt>TTL</dt>
+              <dd>15 minutes</dd>
+              <dt>Payload</dt>
+              <dd>{ userId, sessionId, type: "access" }</dd>
+            </dl>
+          </article>
+          <article class="token-card">
+            <h3>Refresh token</h3>
+            <dl>
+              <dt>Transport</dt>
+              <dd>Set-Cookie: refreshToken</dd>
+              <dt>Storage (client)</dt>
+              <dd>httpOnly cookie — JavaScript cannot read it</dd>
+              <dt>Secret</dt>
+              <dd>REFRESH_TOKEN_SECRET</dd>
+              <dt>TTL</dt>
+              <dd>7 days (cookie maxAge + DB expiresAt)</dd>
+              <dt>DB record</dt>
+              <dd>SHA-256 hash in Token.token</dd>
+            </dl>
+          </article>
+        </div>
+
+        <h2 class="section-head">Live session state</h2>
+        <div class="grid-2">
+          <div class="spec-cell">
+            <span class="spec-label">Last access token</span>
+            <p id="last-access-token" style="margin: 12px 0 0; font-family: monospace; font-size: 13px; color: var(--body-strong)">—</p>
+          </div>
+          <div class="spec-cell">
+            <span class="spec-label">Refresh cookie</span>
+            <p id="cookie-status" style="margin: 12px 0 0; font-size: 14px; color: var(--muted)">Not set yet</p>
+          </div>
+        </div>
+
+        <div class="btn-row" style="margin-top: var(--lg)">
+          <button class="btn-primary btn-danger" id="logout-quick" type="button">
+            Logout now
+          </button>
+        </div>
+        <div id="logout-quick-result" style="margin-top: var(--md)"></div>
+
+        <h2 class="section-head" style="margin-top: var(--xxl)">Security checklist</h2>
+        <div class="grid-3">
+          <div class="spec-cell">
+            <span class="spec-label">Passwords</span>
+            <p style="margin: 8px 0 0; color: var(--body-strong)">bcrypt cost 10 — never logged, never returned</p>
+          </div>
+          <div class="spec-cell">
+            <span class="spec-label">Refresh tokens</span>
+            <p style="margin: 8px 0 0; color: var(--body-strong)">Hashed at rest — raw token only in httpOnly cookie</p>
+          </div>
+          <div class="spec-cell">
+            <span class="spec-label">Validation</span>
+            <p style="margin: 8px 0 0; color: var(--body-strong)">Zod schemas reject bad input before DB touch</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- DATABASE -->
+      <section id="panel-database" class="panel">
+        <div class="hero">
+          <h1>Live Database</h1>
+          <p class="hero-lead">
+            Real Postgres rows from your auth backend — passwords and token hashes
+            are truncated for display. Refreshes after every auth action.
+          </p>
+        </div>
+
+        <div class="db-toolbar">
+          <div class="db-counts" id="db-counts">
+            <span class="db-count">Users: —</span>
+            <span class="db-count">Sessions: —</span>
+            <span class="db-count">Tokens: —</span>
+          </div>
+          <button class="btn-primary btn-outline" id="db-refresh" type="button">
+            Refresh tables
+          </button>
+        </div>
+
+        <div id="db-content">
+          <p class="db-loading">Loading database…</p>
+        </div>
+      </section>
+
+      <!-- CONSOLE -->
+      <section id="panel-console" class="panel">
+        <div class="hero">
+          <h1>Request Console</h1>
+          <p class="hero-lead">
+            Raw request and response log from live demo calls. Newest entries first.
+          </p>
+        </div>
+
+        <div class="console">
+          <div class="console-head">
+            <span>Activity log</span>
+            <button class="console-clear" id="console-clear" type="button">Clear</button>
+          </div>
+          <pre class="console-body" id="console-output">// Awaiting API activity…</pre>
+        </div>
+
+        <h2 class="section-head" style="margin-top: var(--xxl)">Endpoint reference</h2>
+        <div class="grid-2">
+          <div class="spec-cell">
+            <span class="badge badge-post">POST</span>
+            <code>/auth/signup-with-email</code>
+            <pre class="console-body" style="margin-top: 12px; max-height: 100px">{ "email": "string", "password": "string" }</pre>
+            <p style="margin: 8px 0 0; font-size: 13px; color: var(--muted)">→ 201 { accessToken } + Set-Cookie</p>
+          </div>
+          <div class="spec-cell">
+            <span class="badge badge-post">POST</span>
+            <code>/auth/signin-with-email</code>
+            <pre class="console-body" style="margin-top: 12px; max-height: 100px">{ "email": "string", "password": "string" }</pre>
+            <p style="margin: 8px 0 0; font-size: 13px; color: var(--muted)">→ 200 { accessToken } + Set-Cookie</p>
+          </div>
+        </div>
+        <div class="grid-2" style="margin-top: var(--lg)">
+          <div class="spec-cell">
+            <span class="badge badge-post">POST</span>
+            <code>/auth/refresh-token</code>
+            <pre class="console-body" style="margin-top: 12px; max-height: 100px">// no body — cookie sent automatically</pre>
+            <p style="margin: 8px 0 0; font-size: 13px; color: var(--muted)">→ 200 { accessToken } + rotated Set-Cookie</p>
+          </div>
+          <div class="spec-cell">
+            <span class="badge badge-post">POST</span>
+            <code>/auth/logout</code>
+            <pre class="console-body" style="margin-top: 12px; max-height: 100px">// no body — cookie sent automatically</pre>
+            <p style="margin: 8px 0 0; font-size: 13px; color: var(--muted)">→ 200 { message } + Clear-Cookie</p>
+          </div>
+        </div>
+        <div class="grid-2" style="margin-top: var(--lg)">
+          <div class="spec-cell">
+            <span class="badge badge-get">GET</span>
+            <code>/auth/demo/db</code>
+            <pre class="console-body" style="margin-top: 12px; max-height: 100px">// returns users, sessions, tokens</pre>
+            <p style="margin: 8px 0 0; font-size: 13px; color: var(--muted)">→ 200 { counts, users, sessions, tokens }</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="m-stripe"></div>
+    <footer class="footer">
+      Auth backend demo · Design system from DESIGN.md · Serve via
+      <code>http://localhost:3000/demo</code>
+    </footer>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>
