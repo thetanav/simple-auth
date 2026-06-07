@@ -92,10 +92,7 @@ authRouter.post("/signup-with-email", async (req, res) => {
       },
     );
 
-    const hashedRefreshToken = crypto
-      .createHash("sha256")
-      .update(refreshToken)
-      .digest("hex");
+    const hashedRefreshToken = crypto.createHash("sha256").update(refreshToken).digest("hex");
 
     await prisma.token.create({
       data: {
@@ -153,10 +150,7 @@ authRouter.post("/signin-with-email", async (req, res) => {
       });
     }
 
-    const isPasswordValid = await bcrypt.compare(
-      validatedData.data.password,
-      user.password,
-    );
+    const isPasswordValid = await bcrypt.compare(validatedData.data.password, user.password);
 
     if (!isPasswordValid) {
       return res.status(401).json({
@@ -197,10 +191,7 @@ authRouter.post("/signin-with-email", async (req, res) => {
       },
     );
 
-    const hashedRefreshToken = crypto
-      .createHash("sha256")
-      .update(refreshToken)
-      .digest("hex");
+    const hashedRefreshToken = crypto.createHash("sha256").update(refreshToken).digest("hex");
 
     await prisma.token.create({
       data: {
@@ -239,10 +230,7 @@ authRouter.post("/refresh-token", async (req, res) => {
       });
     }
 
-    const hashedRefreshToken = crypto
-      .createHash("sha256")
-      .update(refreshToken)
-      .digest("hex");
+    const hashedRefreshToken = crypto.createHash("sha256").update(refreshToken).digest("hex");
 
     const token = await prisma.token.findFirst({
       where: {
@@ -348,10 +336,7 @@ authRouter.get("/session", async (req, res) => {
       return res.json({ loggedIn: false });
     }
 
-    const hashedRefreshToken = crypto
-      .createHash("sha256")
-      .update(refreshToken)
-      .digest("hex");
+    const hashedRefreshToken = crypto.createHash("sha256").update(refreshToken).digest("hex");
 
     const token = await prisma.token.findFirst({
       where: { token: hashedRefreshToken },
@@ -425,10 +410,7 @@ authRouter.post("/logout", async (req, res) => {
       return res.status(200).json({ message: "Logged out successfully" });
     }
 
-    const hashedRefreshToken = crypto
-      .createHash("sha256")
-      .update(refreshToken)
-      .digest("hex");
+    const hashedRefreshToken = crypto.createHash("sha256").update(refreshToken).digest("hex");
 
     const token = await prisma.token.findFirst({
       where: { token: hashedRefreshToken },
@@ -462,9 +444,12 @@ authRouter.post("/forgot-password", async (req, res) => {
 
     const resetToken = crypto.randomBytes(32).toString("hex");
 
-    return res
-      .status(200)
-      .json({ message: "Password reset token sent", resetToken });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { resetToken },
+    });
+
+    return res.status(200).json({ message: "Password reset token sent", resetToken });
   } catch (error) {
     console.error("[forgot-password]", error);
     return res.status(500).json({ error: "Internal server error" });
@@ -476,14 +461,16 @@ authRouter.post("/reset-password", async (req, res) => {
   try {
     const { resetToken, newPassword } = req.body;
 
-    const user = await prisma.user.findUnique({ where: { resetToken } });
+    const user = await prisma.user.findFirst({ where: { resetToken } });
     if (!user) {
       return res.status(404).json({ error: "Invalid reset token" });
     }
 
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
     await prisma.user.update({
       where: { id: user.id },
-      data: { password: newPassword },
+      data: { password: hashedPassword, resetToken: null },
     });
 
     return res.status(200).json({ message: "Password reset successfully" });

@@ -2,9 +2,7 @@ import { z } from "zod";
 
 const envSchema = z.object({
   // Enforce specific environment strings
-  NODE_ENV: z
-    .enum(["development", "production", "test"])
-    .default("development"),
+  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 
   // Automatically convert string to number and fall back to 3000
   PORT: z.coerce.number().default(3000),
@@ -13,12 +11,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url("DATABASE_URL must be a valid connection URL"),
 
   // Auth secrets
-  REFRESH_TOKEN_SECRET: z
-    .string()
-    .describe("REFRESH_TOKEN_SECRET must be a valid string"),
-  ACCESS_TOKEN_SECRET: z
-    .string()
-    .describe("ACCESS_TOKEN_SECRET must be a valid string"),
+  REFRESH_TOKEN_SECRET: z.string().describe("REFRESH_TOKEN_SECRET must be a valid string"),
+  ACCESS_TOKEN_SECRET: z.string().describe("ACCESS_TOKEN_SECRET must be a valid string"),
 });
 
 // Validate process.env against the schema

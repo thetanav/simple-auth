@@ -11,15 +11,16 @@ datasource db {
 }
 
 model User {
-  id        String    @id @default(uuid())
-  firstName String?
-  lastName  String?
-  email     String    @unique
-  password  String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id         String    @id @default(uuid())
+  firstName  String?
+  lastName   String?
+  email      String    @unique
+  password   String
+  resetToken String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  sessions  Session[]
+  sessions   Session[]
 }
 
 model Token {
