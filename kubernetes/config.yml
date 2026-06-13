@@ -3,4 +3,7 @@ kind: ConfigMap
 metadata:
   name: simple-auth-config
 data:
+  # keep original for reference
   DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres
+  # application should instead read DATABASE_URL from secrets; provide a cluster URL that uses the postgres service
+  CLUSTER_DATABASE_URL: postgresql://tanav:tanav@123@postgres-service:5432/postgres

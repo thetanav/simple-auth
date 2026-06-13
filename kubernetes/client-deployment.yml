@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client-deployment
+  labels:
+    app: client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client
+  template:
+    metadata:
+      labels:
+        app: client
+    spec:
+      containers:
+        - name: client
+          image: simple-auth-client:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5173
+          envFrom:
+            - configMapRef:
+                name: simple-auth-config
+
+---
+# ClusterIP service for client (optional; use to expose inside cluster)
+apiVersion: v1
+kind: Service
+metadata:
+  name: client-service
+spec:
+  selector:
+    app: client
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5173
+  type: ClusterIP

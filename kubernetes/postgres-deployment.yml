@@ -5,7 +5,7 @@ metadata:
   labels:
     app: postgres
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: postgres
@@ -23,13 +23,13 @@ spec:
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
-                  name: secret
+                  name: simple-auth-secret
                   key: postgres_username
 
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: secret
+                  name: simple-auth-secret
                   key: postgres_password
 ---
 apiVersion: v1
@@ -43,3 +43,4 @@ spec:
     - protocol: TCP
       port: 5432
       targetPort: 5432
+  type: ClusterIP

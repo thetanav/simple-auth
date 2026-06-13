@@ -5,7 +5,7 @@ metadata:
   labels:
     app: server
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: server
@@ -17,5 +17,11 @@ spec:
       containers:
         - name: server
           image: simple-auth:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: simple-auth-config
+            - secretRef:
+                name: simple-auth-secret
           ports:
             - containerPort: 3000
