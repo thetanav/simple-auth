@@ -2,12 +2,12 @@ import "dotenv/config";
 import express from "express";
 import cookieParser from "cookie-parser";
 import swaggerUi from "swagger-ui-express";
-import authRouter from "./src/auth/index.js";
-import { prisma } from "./src/lib/prisma.js";
+import authRouter from "../src/auth/index.js";
+import { prisma } from "../src/lib/prisma.js";
 import helmet from "helmet";
-import env from "./src/zod/env.js";
-import { logger } from "./src/lib/logger.js";
-import { swaggerSpec } from "./src/swagger.js";
+import env from "../src/zod/env.js";
+import { logger } from "../src/lib/logger.js";
+import { swaggerSpec } from "../src/swagger.js";
 import { rateLimit } from "express-rate-limit";
 
 const app = express();
