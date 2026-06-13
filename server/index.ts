@@ -2,12 +2,12 @@ import "dotenv/config";
 import express from "express";
 import cookieParser from "cookie-parser";
 import swaggerUi from "swagger-ui-express";
-import authRouter from "../src/auth/index.js";
-import { prisma } from "../src/lib/prisma.js";
+import authRouter from "./src/auth/index";
+import { prisma } from "./src/lib/prisma";
 import helmet from "helmet";
-import env from "../src/zod/env.js";
-import { logger } from "../src/lib/logger.js";
-import { swaggerSpec } from "../src/swagger.js";
+import env from "./src/zod/env";
+import { logger } from "./src/lib/logger";
+import { swaggerSpec } from "./src/swagger";
 import { rateLimit } from "express-rate-limit";
 
 const app = express();
@@ -17,8 +17,11 @@ app.use((req, res, next) => {
   const start = Date.now();
   res.on("finish", () => {
     const ms = Date.now() - start;
-    const tag = res.statusCode >= 500 ? "ERR" : res.statusCode >= 400 ? "WARN" : "OK";
-    logger.info(`[${tag}] ${req.method} ${req.originalUrl} → ${res.statusCode} (${ms}ms)`);
+    const tag =
+      res.statusCode >= 500 ? "ERR" : res.statusCode >= 400 ? "WARN" : "OK";
+    logger.info(
+      `[${tag}] ${req.method} ${req.originalUrl} → ${res.statusCode} (${ms}ms)`,
+    );
   });
   next();
 });
@@ -70,7 +73,9 @@ const server = app.listen(PORT, () => {
 
 server.on("error", (err: NodeJS.ErrnoException) => {
   if (err.code === "EADDRINUSE") {
-    logger.error(`\n  Port ${PORT} in use. Run: lsof -ti :${PORT} | xargs kill -9\n`);
+    logger.error(
+      `\n  Port ${PORT} in use. Run: lsof -ti :${PORT} | xargs kill -9\n`,
+    );
   } else {
     logger.error(err);
   }

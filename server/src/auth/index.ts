@@ -3,11 +3,11 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import env from "../zod/env.js";
-import { signinSchema, signupSchema } from "../zod/zod.types.js";
+import { signinSchema, signupSchema } from "../zod/zod.types";
 import { prisma } from "../lib/prisma.js";
-import type { JwtAuthPayload } from "../types/signup.js";
-import { logger } from "../lib/logger.js";
-import { auth } from "./middleware.js";
+import type { JwtAuthPayload } from "../types/signup";
+import { logger } from "../lib/logger";
+import { auth } from "./middleware";
 
 const authRouter = express.Router();
 
