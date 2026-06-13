@@ -9,10 +9,9 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "postinstall": "bun run gen",
     "dev": "bun run --watch index.ts",
-    "build": "tsc -b",
-    "start": "bun run build && bun dist/index.js",
+    "build": "bun gen && tsc -b",
+    "start": "bun dist/index.js",
     "migrate": "bunx --bun prisma migrate dev",
     "gen": "bunx --bun prisma generate",
     "lint": "oxlint",
